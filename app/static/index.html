@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VoxForge — Discord Voice Changer</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%2338bdf8'/%3E%3Cstop offset='100%25' stop-color='%23818cf8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M32 14a7 7 0 0 0-7 7v12a7 7 0 0 0 14 0V21a7 7 0 0 0-7-7zm13 18v1a13 13 0 0 1-26 0v-1m13 14v6m-7 0h14' stroke='%23fff' stroke-width='4' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --bg: #080a10;
+      --bg-panel: #101420;
+      --bg-card: #151a2a;
+      --bg-card-hover: #1b2236;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f1f5f9;
+      --muted: #8b98b8;
+      --accent: #38bdf8;
+      --accent-2: #818cf8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --amber: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: radial-gradient(circle at 12% 0%, #151c36 0%, var(--bg) 52%);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      height: 100vh;
+      padding: 14px 16px;
+      gap: 12px;
+    }
+
+    /* Top Header */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      background: rgba(16, 20, 32, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 14px;
+      backdrop-filter: blur(12px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 220px;
+    }
+    .brand-logo {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      display: grid; place-items: center;
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.35);
+      flex-shrink: 0;
+    }
+    .brand-title { font-weight: 800; font-size: 15px; letter-spacing: 0.4px; }
+    .brand-sub { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      display: inline-block;
+    }
+    .dot.off { background: var(--red); box-shadow: 0 0 8px var(--red); }
+
+    /* Visualizer */
+    .viz-box {
+      flex: 1;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .viz-bars {
+      height: 30px;
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      padding: 2px 6px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .viz-bar {
+      flex: 1;
+      min-height: 3px;
+      height: 10%;
+      border-radius: 3px;
+      background: linear-gradient(to top, #38bdf8, #a855f7);
+      transition: height 55ms linear;
+    }
+    .vu-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .vu-track {
+      flex: 1; height: 4px; border-radius: 99px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+    .vu-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #22c55e, #38bdf8, #f43f5e);
+      transition: width 55ms linear;
+    }
+
+    /* Action Pills */
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.14s ease;
+    }
+    .btn:hover { background: var(--bg-card-hover); border-color: rgba(255,255,255,0.18); }
+    .btn:active { transform: scale(0.97); }
+    .btn.active-green {
+      background: rgba(34, 197, 94, 0.16);
+      border-color: rgba(34, 197, 94, 0.65);
+      color: #86efac;
+      box-shadow: 0 0 14px rgba(34, 197, 94, 0.2);
+    }
+    .btn.active-blue {
+      background: rgba(56, 189, 248, 0.16);
+      border-color: rgba(56, 189, 248, 0.65);
+      color: #7dd3fc;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.2);
+    }
+    .btn.active-red {
+      background: rgba(239, 68, 68, 0.18);
+      border-color: rgba(239, 68, 68, 0.7);
+      color: #fca5a5;
+    }
+    .btn.primary {
+      background: linear-gradient(135deg, #0284c7, #6366f1);
+      border-color: transparent;
+      color: #fff;
+    }
+    .btn.primary:hover { filter: brightness(1.1); }
+
+    /* VB-Cable Banner */
+    .banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 14px;
+      border-radius: 12px;
+      font-size: 12px;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #fde68a;
+    }
+    .banner.ok {
+      background: rgba(34, 197, 94, 0.08);
+      border-color: rgba(34, 197, 94, 0.28);
+      color: #bbf7d0;
+    }
+    .banner.hidden { display: none; }
+    .banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    /* Main split */
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 330px;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .left-pane {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+      background: rgba(16, 20, 32, 0.75);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .tabs-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .tab.active {
+      color: #fff;
+      background: rgba(56, 189, 248, 0.16);
+      border-color: rgba(56, 189, 248, 0.45);
+    }
+
+    .preset-grid {
+      flex: 1;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+      gap: 10px;
+      padding-right: 4px;
+      align-content: start;
+    }
+
+    .preset-card {
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: transform 0.12s ease, border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+    .preset-card:hover {
+      background: var(--bg-card-hover);
+      transform: translateY(-2px);
+      border-color: rgba(255,255,255,0.2);
+    }
+    .preset-card.active {
+      border-color: var(--card-accent, var(--accent));
+      background: linear-gradient(180deg, rgba(56,189,248,0.09), var(--bg-card));
+      box-shadow: 0 0 22px -4px var(--card-accent, var(--accent));
+    }
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-icon {
+      width: 34px; height: 34px;
+      border-radius: 9px;
+      display: grid; place-items: center;
+      background: rgba(255,255,255,0.06);
+      color: var(--card-accent, var(--accent));
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .hotkey {
+      font-size: 10px;
+      color: var(--muted);
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 2px 6px;
+      border-radius: 5px;
+    }
+    .card-name { font-weight: 700; font-size: 13.5px; }
+    .card-desc { font-size: 11px; color: var(--muted); line-height: 1.35; }
+
+    /* Right Sidebar */
+    .right-pane {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .panel {
+      background: rgba(16, 20, 32, 0.82);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .panel-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .field label {
+      font-size: 11.5px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    .field label span.val { color: var(--text); font-weight: 600; }
+
+    select {
+      width: 100%;
+      background: #0c101b;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+      outline: none;
+    }
+    select:focus { border-color: var(--accent); }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .slider-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(4, 6, 12, 0.78);
+      backdrop-filter: blur(6px);
+      display: none;
+      place-items: center;
+      z-index: 50;
+      padding: 20px;
+    }
+    .modal-backdrop.open { display: grid; }
+    .modal {
+      width: 100%; max-width: 520px;
+      background: #121726;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+    }
+    .modal h2 { font-size: 17px; }
+    .modal ol { padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: #cbd5e1; line-height: 1.45; }
+    .modal code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 5px; color: #7dd3fc; }
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 60;
+    }
+    .toast.show { opacity: 1; }
+
+    @media (max-width: 900px) {
+      body { overflow: auto; }
+      .app { height: auto; }
+      .main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" x2="12" y1="19" y2="22"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">VOXFORGE</div>
+          <div class="brand-sub">
+            <span class="dot" id="statusDot"></span>
+            <span id="statusText">Starting...</span>
+            <span id="noteBadge" style="display:none;margin-left:4px;padding:1px 6px;border-radius:6px;background:rgba(225,29,72,0.22);border:1px solid rgba(225,29,72,0.65);color:#fda4af;font-weight:700;font-size:10px;">♪ —</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="viz-box">
+        <div class="viz-bars" id="vizBars"></div>
+        <div class="vu-row">
+          <span>IN</span>
+          <div class="vu-track"><div class="vu-fill" id="vuIn"></div></div>
+          <span>OUT</span>
+          <div class="vu-track"><div class="vu-fill" id="vuOut"></div></div>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button class="btn active-green" id="btnVoiceToggle" title="Ctrl+Shift+M">
+          <span id="voiceToggleLabel">Voice FX ON</span>
+        </button>
+        <button class="btn" id="btnMonitor">
+          <span>Hear Myself</span>
+        </button>
+        <button class="btn" id="btnRecordTest">
+          <span id="recordBtnLabel">Test Record (4s)</span>
+        </button>
+        <button class="btn" id="btnGuide">Discord Setup</button>
+      </div>
+    </header>
+
+    <div class="banner hidden" id="vbBanner">
+      <div id="vbBannerText">
+        To route your modified voice into Discord, install <b>VB-Cable</b>. You can still preview every voice on your headphones right now!
+      </div>
+      <div class="banner-actions">
+        <button class="btn primary" id="btnInstallVB">Install VB-Cable (1-Click)</button>
+        <button class="btn" id="btnRefreshDevs">Refresh</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <section class="left-pane">
+        <div class="tabs-row">
+          <div class="tabs" id="categoryTabs"></div>
+          <div style="font-size:11px;color:var(--muted)" id="activeVoiceBadge">Active: —</div>
+        </div>
+        <div class="preset-grid" id="presetGrid"></div>
+      </section>
+
+      <aside class="right-pane">
+        <div class="panel">
+          <div class="panel-title">
+            <span>Audio Devices & Mic</span>
+            <button class="btn" style="padding:3px 8px;font-size:11px" id="btnRefreshSmall" title="Refresh audio devices">↻</button>
+          </div>
+          <div class="field">
+            <label>Microphone (Input)</label>
+            <select id="selInput"></select>
+          </div>
+          <div class="field">
+            <label>Discord Output (VB-Cable)</label>
+            <select id="selOutput"></select>
+          </div>
+          <div class="field">
+            <label>Monitor Headphones</label>
+            <select id="selMonitor"></select>
+          </div>
+          <div class="field">
+            <label>Mic Input Gain <span class="val" id="valInGain">0.0 dB</span></label>
+            <input type="range" id="rngInGain" min="-12" max="18" step="0.5" value="0" />
+          </div>
+          <div class="field">
+            <label>Noise Gate <span class="val" id="valGate">Off</span></label>
+            <input type="range" id="rngGate" min="-70" max="-18" step="1" value="-68" />
+          </div>
+          <div class="field">
+            <label>Monitor Volume <span class="val" id="valMonVol">85%</span></label>
+            <input type="range" id="rngMonVol" min="0" max="150" step="5" value="85" />
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <span>Effect Tuning</span>
+            <button class="btn" style="padding:3px 8px;font-size:11px" id="btnResetPreset">Reset</button>
+          </div>
+          <div class="field">
+            <label>Autotune Scale (808s)</label>
+            <select id="selScale">
+              <option value="minor">C Minor (808s & Heartbreak)</option>
+              <option value="pentatonic">Minor Pentatonic (Trap)</option>
+              <option value="major">C Major (Pop)</option>
+              <option value="chromatic">Chromatic (All Notes)</option>
+            </select>
+          </div>
+          <div class="slider-grid" id="dspSliders"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="guideModal">
+    <div class="modal">
+      <h2>Connect VoxForge to Discord in 20 Seconds</h2>
+      <ol>
+        <li>If not installed yet, click <b>Install VB-Cable (1-Click)</b> and confirm the driver installer (then click <b>Refresh</b>, or reboot if Windows prompts you).</li>
+        <li>In VoxForge on the right: set <b>Microphone</b> to your real mic, and <b>Discord Output</b> to <code>CABLE Input (VB-Audio Virtual Cable)</code>.</li>
+        <li>Open <b>Discord → Settings → Voice & Video</b> and set <b>Input Device</b> to <code>CABLE Output (VB-Audio Virtual Cable)</code>.</li>
+        <li>Tip: turn off <b>Krisp</b> noise suppression in Discord (and set Input Sensitivity manually) so Discord doesn't gate out Autotune, Robot, Walkie-Talkie, or Broken Phone effects.</li>
+        <li>Global hotkeys work over games: <code>Ctrl+Shift+0..9</code> and <code>Ctrl+Shift+K</code> (808s) switch voices, <code>Ctrl+Shift+M</code> toggles voice FX on/off.</li>
+      </ol>
+      <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+        <button class="btn primary" id="btnCloseGuide">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const ICONS = {
+      mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
+      sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/>',
+      waves: '<path d="M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0 2 2 2 0"/><path d="M2 6c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/><path d="M2 18c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/>',
+      zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+      smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/>',
+      ghost: '<path d="M9 10h.01"/><path d="M15 10h.01"/><path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8Z"/>',
+      bot: '<rect width="18" height="12" x="3" y="8" rx="2"/><path d="M12 8V4H8"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+      "phone-off": '<path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="22" x2="2" y1="2" y2="22"/>',
+      radio: '<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/>',
+      flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+      mountain: '<path d="m8 3 4 8 5-5 5 15H2L8 3z"/>',
+      orbit: '<circle cx="12" cy="12" r="3"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><path d="M10.4 21.9a10 10 0 0 0 9.941-15.416"/><path d="M13.5 2.1a10 10 0 0 0-9.841 15.416"/>',
+      megaphone: '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+      cpu: '<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>',
+      music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    };
+
+    const SLIDER_SPECS = [
+      { key: "autotune_amount", label: "Autotune (808s)", min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
+      { key: "autotune_speed", label: "Retune Snap Speed", min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
+      { key: "pitch_semitones", label: "Pitch Shift", min: -12, max: 12, step: 0.2, fmt: v => (v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1)) + " st" },
+      { key: "tone_tilt", label: "Tone (Dark / Bright)", min: -1, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
+      { key: "sub_octave_mix", label: "Sub-Octave (Demon)", min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
+      { key: "ring_mod_mix", label: "Robot (Ring Mod)", min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
+      { key: "comb_mix", label: "Metallic Resonator", min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
+      { key: "drive_db", label: "Overdrive / Grit", min: 0, max: 24, step: 0.5, fmt: v => `${v.toFixed(1)} dB` },
+      { key: "packet_loss", label: "Signal Dropouts", min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
+      { key: "bit_depth", label: "Bit Depth (Lo-Fi)", min: 4, max: 16, step: 1, fmt: v => `${Math.round(v)} bit` },
+      { key: "echo_mix", label: "Echo", min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
+      { key: "reverb_mix", label: "Reverb / Hall", min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
+    ];
+
+    let presets = [];
+    let state = {};
+    let selectedCat = "All";
+    let lastPresetId = "deep";
+    let sliderTimer = null;
+
+    function svgIcon(name) {
+      const p = ICONS[name] || ICONS.mic;
+      return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 3200);
+    }
+
+    async function postJSON(url, body = {}) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return res.json();
+    }
+
+    function buildVizBars() {
+      const box = document.getElementById("vizBars");
+      box.innerHTML = "";
+      for (let i = 0; i < 24; i++) {
+        const b = document.createElement("div");
+        b.className = "viz-bar";
+        box.appendChild(b);
+      }
+    }
+
+    function renderCategories() {
+      const cats = ["All", ...new Set(presets.map(p => p.category))];
+      const el = document.getElementById("categoryTabs");
+      el.innerHTML = cats.map(c =>
+        `<button class="tab ${c === selectedCat ? "active" : ""}" data-cat="${c}">${c}</button>`
+      ).join("");
+      el.querySelectorAll(".tab").forEach(btn => {
+        btn.onclick = () => { selectedCat = btn.dataset.cat; renderCategories(); renderPresets(); };
+      });
+    }
+
+    function renderPresets() {
+      const grid = document.getElementById("presetGrid");
+      const list = selectedCat === "All" ? presets : presets.filter(p => p.category === selectedCat);
+      grid.innerHTML = list.map(p => {
+        const active = state.active_preset_id === p.id;
+        return `
+          <div class="preset-card ${active ? "active" : ""}" style="--card-accent:${p.accent}" data-id="${p.id}">
+            <div class="card-top">
+              <div class="card-icon">${svgIcon(p.icon)}</div>
+              ${p.hotkey ? `<span class="hotkey">${p.hotkey.replace("Ctrl+Shift+", "C+S+")}</span>` : ""}
+            </div>
+            <div class="card-name">${p.name}</div>
+            <div class="card-desc">${p.description}</div>
+          </div>
+        `;
+      }).join("");
+
+      grid.querySelectorAll(".preset-card").forEach(card => {
+        card.onclick = () => selectPreset(card.dataset.id);
+      });
+
+      const cur = presets.find(p => p.id === state.active_preset_id);
+      document.getElementById("activeVoiceBadge").textContent =
+        state.active_preset_id === "custom" ? "Active: Custom Mixer" : `Active: ${cur ? cur.name : "—"}`;
+    }
+
+    function renderSliders() {
+      const box = document.getElementById("dspSliders");
+      const p = state.params || {};
+      document.getElementById("selScale").value = p.autotune_scale || "minor";
+      box.innerHTML = SLIDER_SPECS.map(s => {
+        const val = p[s.key] ?? 0;
+        return `
+          <div class="field">
+            <label>${s.label} <span class="val" id="sval_${s.key}">${s.fmt(Number(val))}</span></label>
+            <input type="range" id="srng_${s.key}" min="${s.min}" max="${s.max}" step="${s.step}" value="${val}" />
+          </div>
+        `;
+      }).join("");
+
+      SLIDER_SPECS.forEach(s => {
+        const rng = document.getElementById(`srng_${s.key}`);
+        const lbl = document.getElementById(`sval_${s.key}`);
+        rng.oninput = () => {
+          const num = parseFloat(rng.value);
+          lbl.textContent = s.fmt(num);
+          if (!state.params) state.params = {};
+          state.params[s.key] = num;
+          clearTimeout(sliderTimer);
+          sliderTimer = setTimeout(async () => {
+            const res = await postJSON("/api/params", { [s.key]: num });
+            state = res.state;
+            renderPresets();
+          }, 25);
+        };
+      });
+    }
+
+    function renderDevices(devices) {
+      const selIn = document.getElementById("selInput");
+      const selOut = document.getElementById("selOutput");
+      const selMon = document.getElementById("selMonitor");
+
+      const tag = d => d.hostapi_name.replace("Windows ", "");
+      selIn.innerHTML = devices.inputs.map(d => `<option value="${d.id}">[${tag(d)}] ${d.name}</option>`).join("");
+      selOut.innerHTML = `<option value="-1">— Local Preview Only (No Cable) —</option>` +
+        devices.outputs.map(d => `<option value="${d.id}">[${tag(d)}] ${d.name}</option>`).join("");
+      selMon.innerHTML = `<option value="-1">— Off —</option>` +
+        devices.outputs.map(d => `<option value="${d.id}">[${tag(d)}] ${d.name}</option>`).join("");
+
+      if (state.input_device_id != null) selIn.value = String(state.input_device_id);
+      selOut.value = state.output_device_id != null ? String(state.output_device_id) : "-1";
+      selMon.value = state.monitor_device_id != null ? String(state.monitor_device_id) : "-1";
+
+      const vb = devices.vbcable;
+      const banner = document.getElementById("vbBanner");
+      if (!vb.installed) {
+        banner.classList.remove("hidden", "ok");
+      } else {
+        banner.classList.add("hidden");
+      }
+    }
+
+    function syncControlUI() {
+      const dot = document.getElementById("statusDot");
+      const st = document.getElementById("statusText");
+      if (state.last_error) {
+        dot.classList.add("off");
+        st.textContent = state.last_error;
+      } else if (state.running) {
+        dot.classList.remove("off");
+        st.textContent = state.output_device_id != null ? "LIVE · 48kHz · Discord Ready" : "LIVE · 48kHz · Preview Mode";
+      } else {
+        dot.classList.add("off");
+        st.textContent = "Stopped";
+      }
+
+      const btnV = document.getElementById("btnVoiceToggle");
+      btnV.className = "btn " + (state.voice_enabled ? "active-green" : "active-red");
+      document.getElementById("voiceToggleLabel").textContent = state.voice_enabled ? "Voice FX ON" : "Voice FX OFF";
+
+      const btnM = document.getElementById("btnMonitor");
+      btnM.className = "btn " + (state.monitor_enabled ? "active-blue" : "");
+
+      const btnR = document.getElementById("btnRecordTest");
+      const lblR = document.getElementById("recordBtnLabel");
+      if (state.record_state === "recording") {
+        btnR.className = "btn active-red";
+        lblR.textContent = "Speak now (4s...)";
+      } else if (state.record_state === "playing") {
+        btnR.className = "btn active-blue";
+        lblR.textContent = "Playing back...";
+      } else {
+        btnR.className = "btn";
+        lblR.textContent = "Test Record (4s)";
+      }
+
+      document.getElementById("rngInGain").value = state.input_gain_db ?? 0;
+      document.getElementById("valInGain").textContent = `${Number(state.input_gain_db ?? 0).toFixed(1)} dB`;
+      const gVal = state.gate_threshold_db ?? -68;
+      document.getElementById("rngGate").value = gVal;
+      document.getElementById("valGate").textContent = gVal <= -68 ? "Off" : `${Math.round(gVal)} dB`;
+      const mv = Math.round((state.monitor_volume ?? 0.85) * 100);
+      document.getElementById("rngMonVol").value = mv;
+      document.getElementById("valMonVol").textContent = `${mv}%`;
+    }
+
+    async function selectPreset(id) {
+      lastPresetId = id;
+      const res = await postJSON(`/api/preset/${id}`);
+      state = res.state;
+      renderPresets();
+      renderSliders();
+      syncControlUI();
+    }
+
+    async function bootstrap() {
+      buildVizBars();
+      const data = await (await fetch("/api/bootstrap")).json();
+      presets = data.presets;
+      state = data.state;
+      if (state.active_preset_id && state.active_preset_id !== "custom") {
+        lastPresetId = state.active_preset_id;
+      }
+      renderCategories();
+      renderPresets();
+      renderSliders();
+      renderDevices(data.devices);
+      syncControlUI();
+      connectWS();
+    }
+
+    function connectWS() {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const ws = new WebSocket(`${proto}://${location.host}/ws/telemetry`);
+      const bars = document.getElementById("vizBars").children;
+      ws.onmessage = ev => {
+        const msg = JSON.parse(ev.data);
+        document.getElementById("vuIn").style.width = `${Math.round(msg.in_level * 100)}%`;
+        document.getElementById("vuOut").style.width = `${Math.round(msg.out_level * 100)}%`;
+        const nb = document.getElementById("noteBadge");
+        if (msg.tuned_note) {
+          nb.style.display = "inline-block";
+          nb.textContent = `♪ ${msg.tuned_note}`;
+        } else {
+          nb.style.display = "none";
+        }
+        for (let i = 0; i < bars.length; i++) {
+          const h = Math.max(8, Math.round((msg.spectrum[i] || 0) * 100));
+          bars[i].style.height = `${h}%`;
+        }
+        const changed = (
+          msg.active_preset_id !== state.active_preset_id ||
+          msg.voice_enabled !== state.voice_enabled ||
+          msg.monitor_enabled !== state.monitor_enabled ||
+          msg.record_state !== state.record_state ||
+          msg.running !== state.running ||
+          msg.last_error !== state.last_error
+        );
+        if (changed) {
+          const presetChanged = msg.active_preset_id !== state.active_preset_id;
+          state.active_preset_id = msg.active_preset_id;
+          state.voice_enabled = msg.voice_enabled;
+          state.monitor_enabled = msg.monitor_enabled;
+          state.record_state = msg.record_state;
+          state.running = msg.running;
+          state.last_error = msg.last_error;
+          syncControlUI();
+          if (presetChanged) {
+            fetch("/api/bootstrap").then(r => r.json()).then(d => {
+              state = d.state;
+              renderPresets();
+              renderSliders();
+            });
+          }
+        }
+      };
+      ws.onclose = () => setTimeout(connectWS, 1500);
+    }
+
+    // Event bindings
+    document.getElementById("btnVoiceToggle").onclick = async () => {
+      const res = await postJSON("/api/controls", { voice_enabled: !state.voice_enabled });
+      state = res.state;
+      syncControlUI();
+    };
+
+    document.getElementById("btnMonitor").onclick = async () => {
+      const res = await postJSON("/api/controls", { monitor_enabled: !state.monitor_enabled });
+      state = res.state;
+      syncControlUI();
+    };
+
+    document.getElementById("btnRecordTest").onclick = async () => {
+      const res = await postJSON("/api/test-record");
+      if (res.ok) showToast("Speak into your mic for 4 seconds to hear your voice FX!");
+    };
+
+    const onDeviceChange = async () => {
+      const res = await postJSON("/api/devices/select", {
+        input_device_id: parseInt(document.getElementById("selInput").value, 10),
+        output_device_id: parseInt(document.getElementById("selOutput").value, 10),
+        monitor_device_id: parseInt(document.getElementById("selMonitor").value, 10),
+      });
+      state = res.state;
+      syncControlUI();
+    };
+    document.getElementById("selInput").onchange = onDeviceChange;
+    document.getElementById("selOutput").onchange = onDeviceChange;
+    document.getElementById("selMonitor").onchange = onDeviceChange;
+
+    document.getElementById("rngInGain").oninput = async e => {
+      const v = parseFloat(e.target.value);
+      document.getElementById("valInGain").textContent = `${v.toFixed(1)} dB`;
+      const res = await postJSON("/api/controls", { input_gain_db: v });
+      state = res.state;
+    };
+    document.getElementById("rngGate").oninput = async e => {
+      const v = parseFloat(e.target.value);
+      document.getElementById("valGate").textContent = v <= -68 ? "Off" : `${Math.round(v)} dB`;
+      const res = await postJSON("/api/controls", { gate_threshold_db: v });
+      state = res.state;
+    };
+    document.getElementById("rngMonVol").oninput = async e => {
+      const pct = parseFloat(e.target.value);
+      document.getElementById("valMonVol").textContent = `${Math.round(pct)}%`;
+      const res = await postJSON("/api/controls", { monitor_volume: pct / 100.0 });
+      state = res.state;
+    };
+
+    document.getElementById("btnResetPreset").onclick = () => selectPreset(lastPresetId || "deep");
+
+    document.getElementById("selScale").onchange = async e => {
+      const res = await postJSON("/api/params", { autotune_scale: e.target.value });
+      state = res.state;
+      renderPresets();
+    };
+
+    const refreshDevices = async () => {
+      const res = await postJSON("/api/devices/refresh");
+      state = res.state;
+      renderDevices(res.devices);
+      syncControlUI();
+      showToast("Audio device list refreshed");
+    };
+    document.getElementById("btnRefreshDevs").onclick = refreshDevices;
+    document.getElementById("btnRefreshSmall").onclick = refreshDevices;
+
+    document.getElementById("btnInstallVB").onclick = async () => {
+      showToast("Downloading VB-Cable and launching installer...");
+      const res = await postJSON("/api/vbcable/install");
+      showToast(res.message || "Installer launched");
+    };
+
+    const modal = document.getElementById("guideModal");
+    document.getElementById("btnGuide").onclick = () => modal.classList.add("open");
+    document.getElementById("btnCloseGuide").onclick = () => modal.classList.remove("open");
+    modal.onclick = e => { if (e.target === modal) modal.classList.remove("open"); };
+
+    bootstrap();
+  </script>
+</body>
+</html>
